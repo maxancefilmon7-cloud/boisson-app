@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mes Boissons</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="boissons.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -232,6 +233,64 @@
       .form-grid { grid-template-columns: 1fr; }
       .admin-item-actions { flex-direction: column; }
     }
+
+    /* SCANNER */
+    #page-scanner { max-width: 500px; margin: 0 auto; padding: 32px 16px; text-align: center; }
+    .scanner-title { font-size: 1.4rem; font-weight: 700; color: #2d3748; margin-bottom: 6px; }
+    .scanner-sub { color: #718096; font-size: 0.88rem; margin-bottom: 24px; }
+    #scanner-box {
+      border-radius: 20px;
+      overflow: hidden;
+      background: #1a202c;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+      position: relative;
+    }
+    #scanner-box video { border-radius: 20px; }
+    /* Cache les éléments parasites de html5-qrcode */
+    #reader__scan_region img, #reader__dashboard_section_swaplink { display: none !important; }
+    #reader { border: none !important; }
+    #reader__scan_region { border-radius: 20px; overflow: hidden; }
+    .scanner-status {
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .scanner-status.scanning { background: #ebf4ff; color: #2b6cb0; }
+    .scanner-status.success { background: #c6f6d5; color: #276749; }
+    .scanner-status.error { background: #fed7d7; color: #9b2c2c; }
+    .btn-stop { background: #e53e3e; color: white; border: none; padding: 12px 32px; border-radius: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn-stop:hover { background: #c53030; }
+    .scan-btn-grand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: linear-gradient(135deg, #1a56db, #1e40af);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      padding: 20px 32px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      max-width: 340px;
+      margin: 0 auto 16px;
+      box-shadow: 0 4px 16px rgba(26,86,219,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .scan-btn-grand:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,86,219,0.4); }
+    .scan-icon { font-size: 2rem; }
+
+    /* Bouton scanner sur la page d'accueil */
+    .accueil-scanner {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
   </style>
 </head>
 <body>
@@ -244,12 +303,29 @@
 <!-- PAGE LISTE -->
 <div id="page-liste" class="page">
   <div class="container">
-    <div class="page-title">Nos boissons</div>
+    <div class="accueil-scanner">
+      <button class="scan-btn-grand" onclick="window.location.hash='#/scanner'">
+        <span class="scan-icon">📷</span>
+        <span>Scanner une boisson</span>
+      </button>
+    </div>
+    <div class="page-title">Toutes nos boissons</div>
     <div class="grille" id="grille-boissons"></div>
     <p id="liste-vide" style="display:none;color:#718096;text-align:center;padding:40px 0;">
       Aucune boisson pour le moment.
     </p>
   </div>
+</div>
+
+<!-- PAGE SCANNER -->
+<div id="page-scanner" class="page">
+  <p class="scanner-title">📷 Scanner une boisson</p>
+  <p class="scanner-sub">Pointez la caméra vers le QR code de la boisson</p>
+  <div id="scanner-box">
+    <div id="reader" style="width:100%;"></div>
+  </div>
+  <div class="scanner-status scanning" id="scanner-status">En attente du QR code...</div>
+  <button class="btn-stop" onclick="arreterScanner()">⏹ Arrêter</button>
 </div>
 
 <!-- PAGE PRODUIT -->
@@ -506,9 +582,15 @@ function router() {
   const nav = document.getElementById('nav-btns');
   nav.innerHTML = '';
 
+  // Arrêter le scanner si on quitte la page scanner
+  if (hash !== '#/scanner' && html5QrCode) arreterScanner();
+
   if (hash === '#/' || hash === '' || hash === '#') {
     navBtn('#/admin', '⚙️ Admin');
     showListe();
+  } else if (hash === '#/scanner') {
+    navBtn('#/', '← Accueil');
+    showScanner();
   } else if (hash.startsWith('#/admin')) {
     navBtn('#/', '← Accueil');
     showAdmin();
@@ -795,6 +877,59 @@ function imprimerQR(id, nom) {
     </body></html>
   `);
   win.document.close();
+}
+
+// ============================================================
+// SCANNER
+// ============================================================
+let html5QrCode = null;
+
+function showScanner() {
+  document.getElementById('page-scanner').classList.add('active');
+  document.getElementById('scanner-status').className = 'scanner-status scanning';
+  document.getElementById('scanner-status').textContent = 'En attente du QR code...';
+
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      const match = decodedText.match(/#\/boisson\/(.+)$/);
+      if (match) {
+        const id = match[1];
+        const boisson = chargerBoissons().find(b => b.id === id);
+        if (boisson) {
+          document.getElementById('scanner-status').className = 'scanner-status success';
+          document.getElementById('scanner-status').textContent = '✅ Boisson trouvée ! Redirection...';
+          arreterScanner();
+          setTimeout(() => { window.location.hash = '#/boisson/' + id; }, 600);
+        } else {
+          document.getElementById('scanner-status').className = 'scanner-status error';
+          document.getElementById('scanner-status').textContent = '❌ Boisson introuvable dans le catalogue.';
+        }
+      } else {
+        document.getElementById('scanner-status').className = 'scanner-status error';
+        document.getElementById('scanner-status').textContent = '❌ QR code non reconnu.';
+        setTimeout(() => {
+          document.getElementById('scanner-status').className = 'scanner-status scanning';
+          document.getElementById('scanner-status').textContent = 'En attente du QR code...';
+        }, 2000);
+      }
+    },
+    () => {}
+  ).catch(() => {
+    document.getElementById('scanner-status').className = 'scanner-status error';
+    document.getElementById('scanner-status').textContent = '❌ Impossible d\'accéder à la caméra. Vérifiez les permissions.';
+  });
+}
+
+function arreterScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => { html5QrCode = null; }).catch(() => {});
+  }
+  if (window.location.hash === '#/scanner') {
+    window.location.hash = '#/';
+  }
 }
 
 // ============================================================
