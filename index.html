@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mes Boissons</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="boissons.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+
+    /* HEADER */
+    header {
+      background: linear-gradient(135deg, #1a56db, #1e40af);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    .nav-btns { display: flex; gap: 8px; }
+    .nav-btn {
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      font-size: 0.82rem;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover, .nav-btn.active { background: rgba(255,255,255,0.3); }
+
+    /* PAGES */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* GRILLE BOISSONS */
+    .container { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+    .page-title { font-size: 1.4rem; font-weight: 700; color: #2d3748; margin-bottom: 24px; }
+
+    .grille {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
+    }
+    .carte {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-align: center;
+    }
+    .carte:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .carte-emoji { font-size: 2.8rem; margin-bottom: 10px; }
+    .carte h3 { font-size: 0.95rem; font-weight: 600; color: #2d3748; margin-bottom: 4px; }
+    .carte .sub { font-size: 0.78rem; color: #718096; }
+    .badge-dlc {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-ok { background: #c6f6d5; color: #276749; }
+    .badge-warn { background: #fefcbf; color: #744210; }
+    .badge-exp { background: #fed7d7; color: #9b2c2c; }
+
+    /* PAGE PRODUIT */
+    #page-produit { max-width: 680px; margin: 0 auto; padding: 0 16px 48px; }
+    .produit-header {
+      background: linear-gradient(135deg, #1a56db, #1e40af);
+      color: white;
+      border-radius: 0 0 32px 32px;
+      padding: 32px 24px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .produit-emoji { font-size: 4rem; margin-bottom: 10px; }
+    .produit-header h2 { font-size: 1.5rem; font-weight: 700; }
+    .produit-header .meta { display: flex; justify-content: center; gap: 10px; margin-top: 8px; font-size: 0.82rem; opacity: 0.85; flex-wrap: wrap; }
+    .section { background: white; border-radius: 16px; padding: 20px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .section h3 { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #a0aec0; margin-bottom: 12px; }
+    .dlc-bloc { display: flex; align-items: center; gap: 14px; }
+    .dlc-icon { font-size: 2rem; }
+    .dlc-date { font-size: 1.2rem; font-weight: 700; }
+    .dlc-label { font-size: 0.8rem; color: #718096; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag-blue { background: #ebf4ff; color: #2b6cb0; padding: 4px 12px; border-radius: 20px; font-size: 0.82rem; }
+    .tag-red { background: #fff5f5; color: #c53030; padding: 4px 12px; border-radius: 20px; font-size: 0.82rem; }
+    .nutriments-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .nutri-item { background: #f7fafc; border-radius: 12px; padding: 12px; text-align: center; }
+    .nutri-val { font-size: 1.1rem; font-weight: 700; color: #2d3748; }
+    .nutri-lbl { font-size: 0.72rem; color: #a0aec0; margin-top: 2px; }
+    .texte-gris { color: #4a5568; font-size: 0.9rem; line-height: 1.6; }
+
+    /* PAGE ADMIN */
+    #page-admin .container { max-width: 960px; }
+
+    /* LOGIN */
+    .login-box {
+      max-width: 380px;
+      margin: 80px auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .login-box h2 { font-size: 1.4rem; margin-bottom: 8px; }
+    .login-box p { color: #718096; font-size: 0.85rem; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .login-box input:focus { border-color: #1a56db; }
+    .login-error { color: #e53e3e; font-size: 0.82rem; margin-bottom: 10px; min-height: 18px; }
+
+    /* BOUTONS */
+    .btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.2s; }
+    .btn-primary { background: #1a56db; color: white; width: 100%; padding: 12px; }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-success:hover { background: #2f855a; }
+    .btn-danger { background: #e53e3e; color: white; }
+    .btn-danger:hover { background: #c53030; }
+    .btn-secondary { background: #e2e8f0; color: #4a5568; }
+    .btn-secondary:hover { background: #cbd5e0; }
+    .btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
+
+    /* ADMIN TABS */
+    .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .admin-tab {
+      padding: 8px 20px;
+      border-radius: 10px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #718096;
+      transition: all 0.2s;
+    }
+    .admin-tab.active { border-color: #1a56db; color: #1a56db; background: #ebf4ff; }
+
+    /* FORMULAIRE */
+    .form-card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .form-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: #2d3748; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #4a5568; margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border 0.2s;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #1a56db; }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-hint { font-size: 0.75rem; color: #a0aec0; margin-top: 4px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .form-full { grid-column: 1 / -1; }
+
+    /* LISTE ADMIN */
+    .admin-liste { display: flex; flex-direction: column; gap: 12px; }
+    .admin-item {
+      background: white;
+      border-radius: 14px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .admin-item-emoji { font-size: 2rem; }
+    .admin-item-info { flex: 1; }
+    .admin-item-info h4 { font-size: 0.95rem; font-weight: 600; }
+    .admin-item-info p { font-size: 0.78rem; color: #718096; margin-top: 2px; }
+    .admin-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* QR GRILLE */
+    .qr-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+    .qr-carte { background: white; border-radius: 16px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+    .qr-carte h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; color: #2d3748; }
+    .qr-code-container { display: flex; justify-content: center; margin-bottom: 10px; }
+    .qr-vol { font-size: 0.72rem; color: #a0aec0; margin-bottom: 10px; }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #2d3748;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: #38a169; }
+    .toast.error { background: #e53e3e; }
+
+    /* PAGE 404 */
+    #page-404 { text-align: center; padding: 80px 16px; }
+    #page-404 .emoji { font-size: 4rem; margin-bottom: 16px; }
+
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .admin-item-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🥤 Mes Boissons</h1>
+  <div class="nav-btns" id="nav-btns"></div>
+</header>
+
+<!-- PAGE LISTE -->
+<div id="page-liste" class="page">
+  <div class="container">
+    <div class="page-title">Nos boissons</div>
+    <div class="grille" id="grille-boissons"></div>
+    <p id="liste-vide" style="display:none;color:#718096;text-align:center;padding:40px 0;">
+      Aucune boisson pour le moment.
+    </p>
+  </div>
+</div>
+
+<!-- PAGE PRODUIT -->
+<div id="page-produit" class="page">
+  <div class="produit-header">
+    <div class="produit-emoji" id="p-emoji"></div>
+    <h2 id="p-nom"></h2>
+    <div class="meta">
+      <span id="p-categorie"></span>
+      <span>·</span>
+      <span id="p-volume"></span>
+      <span>·</span>
+      <span id="p-origine"></span>
+    </div>
+  </div>
+  <div style="max-width:680px;margin:0 auto;padding:0 16px 48px;">
+    <div class="section">
+      <h3>📅 Date limite de consommation</h3>
+      <div class="dlc-bloc">
+        <div class="dlc-icon" id="p-dlc-icon"></div>
+        <div>
+          <div class="dlc-date" id="p-dlc"></div>
+          <div class="dlc-label" id="p-dlc-label"></div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <h3>🧪 Ingrédients</h3>
+      <div class="tags" id="p-ingredients"></div>
+    </div>
+    <div class="section">
+      <h3>⚠️ Allergènes</h3>
+      <div class="tags" id="p-allergenes"></div>
+    </div>
+    <div class="section">
+      <h3>📊 Informations nutritionnelles (pour 100ml)</h3>
+      <div class="nutriments-grid" id="p-nutriments"></div>
+    </div>
+    <div class="section">
+      <h3>❄️ Conservation</h3>
+      <p class="texte-gris" id="p-conservation"></p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE ADMIN -->
+<div id="page-admin" class="page">
+
+  <!-- Écran connexion -->
+  <div id="admin-login">
+    <div class="login-box">
+      <div style="font-size:2.5rem;margin-bottom:12px;">🔐</div>
+      <h2>Espace Administrateur</h2>
+      <p>Entrez le mot de passe pour accéder à la gestion des boissons.</p>
+      <input type="password" id="mdp-input" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') verifierMdp()" />
+      <div class="login-error" id="login-error"></div>
+      <button class="btn btn-primary" onclick="verifierMdp()">Se connecter</button>
+    </div>
+  </div>
+
+  <!-- Dashboard admin -->
+  <div id="admin-dashboard" style="display:none;">
+    <div class="container">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div class="page-title" style="margin:0;">Administration</div>
+        <button class="btn btn-secondary btn-sm" onclick="deconnexion()">Se déconnecter</button>
+      </div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchTab('liste')">📋 Mes boissons</button>
+        <button class="admin-tab" onclick="switchTab('ajouter')">➕ Ajouter</button>
+        <button class="admin-tab" onclick="switchTab('qrcodes')">📲 QR Codes</button>
+      </div>
+
+      <!-- Onglet LISTE -->
+      <div id="tab-liste">
+        <div class="admin-liste" id="admin-liste-items"></div>
+        <p id="admin-liste-vide" style="display:none;color:#718096;text-align:center;padding:40px 0;">
+          Aucune boisson. Utilisez "Ajouter" pour commencer.
+        </p>
+      </div>
+
+      <!-- Onglet AJOUTER / MODIFIER -->
+      <div id="tab-ajouter" style="display:none;">
+        <div class="form-card">
+          <h3 id="form-titre">Ajouter une boisson</h3>
+          <input type="hidden" id="edit-id" />
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nom de la boisson *</label>
+              <input type="text" id="f-nom" placeholder="Ex: Coca-Cola Original" />
+            </div>
+            <div class="form-group">
+              <label>Catégorie *</label>
+              <select id="f-categorie">
+                <option value="Soda">Soda</option>
+                <option value="Jus de fruit">Jus de fruit</option>
+                <option value="Eau">Eau</option>
+                <option value="Bière">Bière</option>
+                <option value="Vin">Vin</option>
+                <option value="Cocktail">Cocktail</option>
+                <option value="Thé">Thé</option>
+                <option value="Café">Café</option>
+                <option value="Smoothie">Smoothie</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Volume *</label>
+              <input type="text" id="f-volume" placeholder="Ex: 33cl, 1L..." />
+            </div>
+            <div class="form-group">
+              <label>Date limite de consommation *</label>
+              <input type="date" id="f-dlc" />
+            </div>
+            <div class="form-group">
+              <label>Origine / Pays</label>
+              <input type="text" id="f-origine" placeholder="Ex: France" />
+            </div>
+            <div class="form-group form-full">
+              <label>Ingrédients *</label>
+              <textarea id="f-ingredients" placeholder="Un ingrédient par ligne :&#10;Eau gazéifiée&#10;Sucre&#10;Colorant E150d"></textarea>
+              <div class="form-hint">Entrez un ingrédient par ligne</div>
+            </div>
+            <div class="form-group form-full">
+              <label>Allergènes</label>
+              <input type="text" id="f-allergenes" placeholder="Ex: Gluten, Lactose — ou 'Aucun'" />
+              <div class="form-hint">Séparez par des virgules</div>
+            </div>
+            <div class="form-group">
+              <label>Énergie (kcal)</label>
+              <input type="text" id="f-energie" placeholder="Ex: 180 kcal" />
+            </div>
+            <div class="form-group">
+              <label>Sucres</label>
+              <input type="text" id="f-sucres" placeholder="Ex: 39g" />
+            </div>
+            <div class="form-group">
+              <label>Protéines</label>
+              <input type="text" id="f-proteines" placeholder="Ex: 0g" />
+            </div>
+            <div class="form-group">
+              <label>Sel</label>
+              <input type="text" id="f-sel" placeholder="Ex: 0.1g" />
+            </div>
+            <div class="form-group form-full">
+              <label>Conseils de conservation</label>
+              <textarea id="f-conservation" placeholder="Ex: Conserver au frais. Après ouverture, consommer sous 24h."></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-success" onclick="sauvegarderBoisson()">💾 Sauvegarder</button>
+            <button class="btn btn-secondary" onclick="reinitialiserFormulaire()">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Onglet QR CODES -->
+      <div id="tab-qrcodes" style="display:none;">
+        <div class="qr-grille" id="qr-grille"></div>
+        <p id="qr-vide" style="display:none;color:#718096;text-align:center;padding:40px 0;">
+          Ajoutez des boissons pour générer leurs QR codes.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 404 -->
+<div id="page-404" class="page">
+  <div class="emoji">🔍</div>
+  <h2>Boisson introuvable</h2>
+  <p style="color:#718096;margin-top:8px;">Ce QR code ne correspond à aucune boisson.</p>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG — changer le mot de passe ici
+// ============================================================
+const MOT_DE_PASSE_ADMIN = "admin123";
+
+// ============================================================
+// DONNÉES (localStorage)
+// ============================================================
+function chargerBoissons() {
+  const data = localStorage.getItem('boissons');
+  if (data) return JSON.parse(data);
+  // Première fois : charger les données par défaut
+  sauvegarderBoissons(BOISSONS_DEFAULT);
+  return BOISSONS_DEFAULT;
+}
+
+function sauvegarderBoissons(liste) {
+  localStorage.setItem('boissons', JSON.stringify(liste));
+}
+
+function genererID(nom) {
+  return nom.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    + '-' + Date.now();
+}
+
+// ============================================================
+// UTILITAIRES
+// ============================================================
+const EMOJIS = { Soda:"🥤", "Jus de fruit":"🍊", Eau:"💧", Bière:"🍺", Vin:"🍷", Cocktail:"🍹", Thé:"🍵", Café:"☕", Smoothie:"🥤", Autre:"🫙" };
+
+function getEmoji(b) { return EMOJIS[b.categorie] || "🥤"; }
+
+function getBaseURL() {
+  const loc = window.location;
+  return loc.origin + loc.pathname.replace(/index\.html$/, '');
+}
+
+function getBoissonURL(id) {
+  return getBaseURL() + '#/boisson/' + id;
+}
+
+function calculerDLC(dlcStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dlc = new Date(dlcStr);
+  const diff = Math.ceil((dlc - today) / 86400000);
+  if (diff < 0) return { classe:'badge-exp', court:'Expiré', label:`Expiré depuis ${Math.abs(diff)}j`, icon:'❌' };
+  if (diff <= 30) return { classe:'badge-warn', court:`${diff}j`, label:`Expire dans ${diff} jour(s)`, icon:'⚠️' };
+  return { classe:'badge-ok', court:formatDate(dlcStr), label:`Encore ${diff} jours`, icon:'✅' };
+}
+
+function formatDate(s) {
+  return new Date(s).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+}
+
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ============================================================
+// ROUTER
+// ============================================================
+function router() {
+  const hash = window.location.hash || '#/';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  const nav = document.getElementById('nav-btns');
+  nav.innerHTML = '';
+
+  if (hash === '#/' || hash === '' || hash === '#') {
+    navBtn('#/admin', '⚙️ Admin');
+    showListe();
+  } else if (hash.startsWith('#/admin')) {
+    navBtn('#/', '← Accueil');
+    showAdmin();
+  } else if (hash.startsWith('#/boisson/')) {
+    navBtn('#/', '← Accueil');
+    showProduit(hash.replace('#/boisson/', ''));
+  } else {
+    document.getElementById('page-404').classList.add('active');
+  }
+}
+
+function navBtn(href, label) {
+  const nav = document.getElementById('nav-btns');
+  const b = document.createElement('a');
+  b.href = href; b.className = 'nav-btn'; b.textContent = label;
+  nav.appendChild(b);
+}
+
+// ============================================================
+// PAGE LISTE
+// ============================================================
+function showListe() {
+  document.getElementById('page-liste').classList.add('active');
+  const boissons = chargerBoissons();
+  const grille = document.getElementById('grille-boissons');
+  grille.innerHTML = '';
+  document.getElementById('liste-vide').style.display = boissons.length ? 'none' : 'block';
+
+  boissons.forEach(b => {
+    const dlc = calculerDLC(b.dlc);
+    const div = document.createElement('div');
+    div.className = 'carte';
+    div.onclick = () => window.location.hash = '#/boisson/' + b.id;
+    div.innerHTML = `
+      <div class="carte-emoji">${getEmoji(b)}</div>
+      <h3>${b.nom}</h3>
+      <div class="sub">${b.categorie} · ${b.volume}</div>
+      <span class="badge-dlc ${dlc.classe}">${dlc.court}</span>
+    `;
+    grille.appendChild(div);
+  });
+}
+
+// ============================================================
+// PAGE PRODUIT
+// ============================================================
+function showProduit(id) {
+  document.getElementById('page-produit').classList.add('active');
+  const boisson = chargerBoissons().find(b => b.id === id);
+  if (!boisson) { document.getElementById('page-404').classList.add('active'); document.getElementById('page-produit').classList.remove('active'); return; }
+
+  document.getElementById('p-emoji').textContent = getEmoji(boisson);
+  document.getElementById('p-nom').textContent = boisson.nom;
+  document.getElementById('p-categorie').textContent = boisson.categorie;
+  document.getElementById('p-volume').textContent = boisson.volume;
+  document.getElementById('p-origine').textContent = boisson.origine || '–';
+
+  const dlc = calculerDLC(boisson.dlc);
+  document.getElementById('p-dlc-icon').textContent = dlc.icon;
+  document.getElementById('p-dlc').textContent = formatDate(boisson.dlc);
+  document.getElementById('p-dlc-label').textContent = dlc.label;
+
+  document.getElementById('p-ingredients').innerHTML = boisson.ingredients.map(i => `<span class="tag-blue">${i}</span>`).join('');
+  document.getElementById('p-allergenes').innerHTML = boisson.allergenes.map(a => `<span class="tag-red">${a}</span>`).join('');
+
+  const n = boisson.infos_nutritionnelles;
+  document.getElementById('p-nutriments').innerHTML = `
+    <div class="nutri-item"><div class="nutri-val">${n.energie}</div><div class="nutri-lbl">Énergie</div></div>
+    <div class="nutri-item"><div class="nutri-val">${n.sucres}</div><div class="nutri-lbl">Sucres</div></div>
+    <div class="nutri-item"><div class="nutri-val">${n.proteines}</div><div class="nutri-lbl">Protéines</div></div>
+    <div class="nutri-item"><div class="nutri-val">${n.sel}</div><div class="nutri-lbl">Sel</div></div>
+  `;
+  document.getElementById('p-conservation').textContent = boisson.conservation || '–';
+}
+
+// ============================================================
+// PAGE ADMIN — LOGIN
+// ============================================================
+function verifierMdp() {
+  const mdp = document.getElementById('mdp-input').value;
+  if (mdp === MOT_DE_PASSE_ADMIN) {
+    sessionStorage.setItem('admin_ok', '1');
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    chargerAdminListe();
+    document.getElementById('mdp-input').value = '';
+    document.getElementById('login-error').textContent = '';
+  } else {
+    document.getElementById('login-error').textContent = '❌ Mot de passe incorrect.';
+  }
+}
+
+function deconnexion() {
+  sessionStorage.removeItem('admin_ok');
+  window.location.hash = '#/';
+}
+
+function showAdmin() {
+  document.getElementById('page-admin').classList.add('active');
+  if (sessionStorage.getItem('admin_ok') === '1') {
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    chargerAdminListe();
+  } else {
+    document.getElementById('admin-login').style.display = 'block';
+    document.getElementById('admin-dashboard').style.display = 'none';
+  }
+}
+
+// ============================================================
+// ADMIN — ONGLETS
+// ============================================================
+function switchTab(tab) {
+  ['liste','ajouter','qrcodes'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = 'none';
+    document.querySelectorAll('.admin-tab')[['liste','ajouter','qrcodes'].indexOf(t)].classList.remove('active');
+  });
+  document.getElementById('tab-' + tab).style.display = 'block';
+  document.querySelectorAll('.admin-tab')[['liste','ajouter','qrcodes'].indexOf(tab)].classList.add('active');
+
+  if (tab === 'liste') chargerAdminListe();
+  if (tab === 'ajouter') reinitialiserFormulaire();
+  if (tab === 'qrcodes') chargerQRCodes();
+}
+
+// ============================================================
+// ADMIN — LISTE
+// ============================================================
+function chargerAdminListe() {
+  const boissons = chargerBoissons();
+  const container = document.getElementById('admin-liste-items');
+  container.innerHTML = '';
+  document.getElementById('admin-liste-vide').style.display = boissons.length ? 'none' : 'block';
+
+  boissons.forEach(b => {
+    const dlc = calculerDLC(b.dlc);
+    const div = document.createElement('div');
+    div.className = 'admin-item';
+    div.innerHTML = `
+      <div class="admin-item-emoji">${getEmoji(b)}</div>
+      <div class="admin-item-info">
+        <h4>${b.nom}</h4>
+        <p>${b.categorie} · ${b.volume} · <span class="badge-dlc ${dlc.classe}" style="font-size:0.7rem;">${dlc.court}</span></p>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn btn-secondary btn-sm" onclick="modifierBoisson('${b.id}')">✏️ Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="supprimerBoisson('${b.id}')">🗑️</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ============================================================
+// ADMIN — FORMULAIRE
+// ============================================================
+function reinitialiserFormulaire() {
+  document.getElementById('edit-id').value = '';
+  document.getElementById('form-titre').textContent = 'Ajouter une boisson';
+  ['nom','volume','origine','energie','sucres','proteines','sel','conservation'].forEach(f => {
+    document.getElementById('f-' + f).value = '';
+  });
+  document.getElementById('f-categorie').value = 'Soda';
+  document.getElementById('f-dlc').value = '';
+  document.getElementById('f-ingredients').value = '';
+  document.getElementById('f-allergenes').value = '';
+}
+
+function modifierBoisson(id) {
+  const b = chargerBoissons().find(b => b.id === id);
+  if (!b) return;
+  switchTab('ajouter');
+  document.getElementById('edit-id').value = b.id;
+  document.getElementById('form-titre').textContent = 'Modifier la boisson';
+  document.getElementById('f-nom').value = b.nom;
+  document.getElementById('f-categorie').value = b.categorie;
+  document.getElementById('f-volume').value = b.volume;
+  document.getElementById('f-dlc').value = b.dlc;
+  document.getElementById('f-origine').value = b.origine || '';
+  document.getElementById('f-ingredients').value = b.ingredients.join('\n');
+  document.getElementById('f-allergenes').value = b.allergenes.join(', ');
+  const n = b.infos_nutritionnelles;
+  document.getElementById('f-energie').value = n.energie;
+  document.getElementById('f-sucres').value = n.sucres;
+  document.getElementById('f-proteines').value = n.proteines;
+  document.getElementById('f-sel').value = n.sel;
+  document.getElementById('f-conservation').value = b.conservation || '';
+}
+
+function sauvegarderBoisson() {
+  const nom = document.getElementById('f-nom').value.trim();
+  const dlc = document.getElementById('f-dlc').value;
+  const ingredients = document.getElementById('f-ingredients').value.trim();
+
+  if (!nom || !dlc || !ingredients) {
+    toast('Remplissez les champs obligatoires (*)', 'error');
+    return;
+  }
+
+  const boissons = chargerBoissons();
+  const editId = document.getElementById('edit-id').value;
+
+  const boisson = {
+    id: editId || genererID(nom),
+    nom,
+    categorie: document.getElementById('f-categorie').value,
+    volume: document.getElementById('f-volume').value.trim() || '–',
+    dlc,
+    origine: document.getElementById('f-origine').value.trim() || '–',
+    ingredients: ingredients.split('\n').map(s => s.trim()).filter(Boolean),
+    allergenes: document.getElementById('f-allergenes').value.split(',').map(s => s.trim()).filter(Boolean) || ['Aucun'],
+    infos_nutritionnelles: {
+      energie: document.getElementById('f-energie').value.trim() || '–',
+      sucres:  document.getElementById('f-sucres').value.trim()  || '–',
+      proteines: document.getElementById('f-proteines').value.trim() || '–',
+      sel:     document.getElementById('f-sel').value.trim()     || '–',
+    },
+    conservation: document.getElementById('f-conservation').value.trim()
+  };
+
+  if (editId) {
+    const idx = boissons.findIndex(b => b.id === editId);
+    boissons[idx] = boisson;
+    toast('✅ Boisson mise à jour !');
+  } else {
+    boissons.push(boisson);
+    toast('✅ Boisson ajoutée !');
+  }
+
+  sauvegarderBoissons(boissons);
+  reinitialiserFormulaire();
+  switchTab('liste');
+}
+
+function supprimerBoisson(id) {
+  if (!confirm('Supprimer cette boisson ?')) return;
+  const boissons = chargerBoissons().filter(b => b.id !== id);
+  sauvegarderBoissons(boissons);
+  chargerAdminListe();
+  toast('Boisson supprimée', 'error');
+}
+
+// ============================================================
+// ADMIN — QR CODES
+// ============================================================
+function chargerQRCodes() {
+  const boissons = chargerBoissons();
+  const grille = document.getElementById('qr-grille');
+  grille.innerHTML = '';
+  document.getElementById('qr-vide').style.display = boissons.length ? 'none' : 'block';
+
+  boissons.forEach(b => {
+    const div = document.createElement('div');
+    div.className = 'qr-carte';
+    div.innerHTML = `
+      <h4>${getEmoji(b)} ${b.nom}</h4>
+      <div class="qr-vol">${b.categorie} · ${b.volume}</div>
+      <div class="qr-code-container" id="qr-${b.id}"></div>
+      <button class="btn btn-primary btn-sm" style="width:100%;" onclick="imprimerQR('${b.id}', '${b.nom.replace(/'/g,"\\'")}')">🖨️ Imprimer</button>
+    `;
+    grille.appendChild(div);
+
+    new QRCode(document.getElementById('qr-' + b.id), {
+      text: getBoissonURL(b.id),
+      width: 140, height: 140,
+      colorDark: '#1a202c', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  });
+}
+
+function imprimerQR(id, nom) {
+  const canvas = document.querySelector('#qr-' + id + ' canvas');
+  if (!canvas) return;
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>QR - ${nom}</title>
+    <style>body{font-family:sans-serif;text-align:center;padding:40px;}img{border:2px solid #eee;border-radius:8px;padding:10px;}h2{margin-bottom:16px;}p{color:#888;font-size:.85rem;margin-top:10px;}</style>
+    </head><body>
+    <h2>${nom}</h2>
+    <img src="${canvas.toDataURL()}" width="200" height="200" />
+    <p>Scannez pour voir les détails de la boisson</p>
+    <script>window.print();window.close();<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('hashchange', router);
+window.addEventListener('load', router);
+</script>
+
+</body>
+</html>
