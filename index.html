@@ -622,15 +622,36 @@
 <script>
 // ── CONFIG ───────────────────────────────────
 const MOT_DE_PASSE_ADMIN = "admin123";
+const DB_URL = "https://boisson-app-a9e7c-default-rtdb.europe-west1.firebasedatabase.app";
 
-// ── DONNÉES ──────────────────────────────────
-function chargerBoissons() {
-  const d = localStorage.getItem('boissons');
-  if (d) return JSON.parse(d);
-  localStorage.setItem('boissons', JSON.stringify(BOISSONS_DEFAULT));
-  return BOISSONS_DEFAULT;
+// ── DONNÉES FIREBASE ──────────────────────────
+async function chargerBoissons() {
+  try {
+    const res = await fetch(`${DB_URL}/boissons.json`);
+    const data = await res.json();
+    if (!data) {
+      await sauvegarderBoissons(BOISSONS_DEFAULT);
+      return BOISSONS_DEFAULT;
+    }
+    // Firebase retourne un objet {id: boisson}, on convertit en tableau
+    return Object.values(data);
+  } catch(e) {
+    console.error('Erreur Firebase:', e);
+    return [];
+  }
 }
-function sauvegarderBoissons(liste) { localStorage.setItem('boissons', JSON.stringify(liste)); }
+
+async function sauvegarderBoissons(liste) {
+  // On stocke comme objet { id: boisson } pour Firebase
+  const obj = {};
+  liste.forEach(b => obj[b.id] = b);
+  await fetch(`${DB_URL}/boissons.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(obj)
+  });
+}
+
 function genererID(nom) {
   return nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now();
@@ -695,10 +716,11 @@ function addNavBtn(href, label, cls='') {
 }
 
 // ── PAGE LISTE ────────────────────────────────
-function showListe() {
+async function showListe() {
   document.getElementById('page-liste').classList.add('active');
-  const boissons = chargerBoissons();
   const grille = document.getElementById('grille-boissons');
+  grille.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px 0;">Chargement...</p>';
+  const boissons = await chargerBoissons();
   grille.innerHTML = '';
   document.getElementById('liste-vide').style.display = boissons.length ? 'none' : 'block';
   boissons.forEach(b => {
@@ -719,30 +741,37 @@ function showListe() {
 }
 
 // ── PAGE PRODUIT ──────────────────────────────
-function showProduit(id) {
+async function showProduit(id) {
   document.getElementById('page-produit').classList.add('active');
-  const b = chargerBoissons().find(x => x.id === id);
-  if (!b) { document.getElementById('page-404').classList.add('active'); document.getElementById('page-produit').classList.remove('active'); return; }
+  // Chargement direct depuis Firebase par ID
+  try {
+    const res = await fetch(`${DB_URL}/boissons/${id}.json`);
+    const b = await res.json();
+    if (!b) throw new Error('not found');
 
-  document.getElementById('p-emoji').textContent = getEmoji(b);
-  document.getElementById('p-nom').textContent = b.nom;
-  document.getElementById('p-meta').innerHTML = [b.categorie, b.volume, b.origine||''].filter(Boolean)
-    .map(s => `<span class="produit-meta-chip">${s}</span>`).join('');
+    document.getElementById('p-emoji').textContent = getEmoji(b);
+    document.getElementById('p-nom').textContent = b.nom;
+    document.getElementById('p-meta').innerHTML = [b.categorie, b.volume, b.origine||''].filter(Boolean)
+      .map(s => `<span class="produit-meta-chip">${s}</span>`).join('');
 
-  const dlc = calculerDLC(b.dlc);
-  document.getElementById('p-dlc-icon').textContent = dlc.icon;
-  document.getElementById('p-dlc').textContent = formatDate(b.dlc);
-  document.getElementById('p-dlc-label').textContent = dlc.label;
+    const dlc = calculerDLC(b.dlc);
+    document.getElementById('p-dlc-icon').textContent = dlc.icon;
+    document.getElementById('p-dlc').textContent = formatDate(b.dlc);
+    document.getElementById('p-dlc-label').textContent = dlc.label;
 
-  document.getElementById('p-ingredients').innerHTML = b.ingredients.map(i => `<span class="tag tag-blue">${i}</span>`).join('');
-  document.getElementById('p-allergenes').innerHTML = b.allergenes.map(a => `<span class="tag tag-red">${a}</span>`).join('');
+    document.getElementById('p-ingredients').innerHTML = b.ingredients.map(i => `<span class="tag tag-blue">${i}</span>`).join('');
+    document.getElementById('p-allergenes').innerHTML = b.allergenes.map(a => `<span class="tag tag-red">${a}</span>`).join('');
 
-  const n = b.infos_nutritionnelles;
-  document.getElementById('p-nutriments').innerHTML = [
-    [n.energie,'Énergie'],[n.sucres,'Sucres'],[n.proteines,'Protéines'],[n.sel,'Sel']
-  ].map(([v,l]) => `<div class="nutri-cell"><div class="nutri-val">${v}</div><div class="nutri-lbl">${l}</div></div>`).join('');
+    const n = b.infos_nutritionnelles;
+    document.getElementById('p-nutriments').innerHTML = [
+      [n.energie,'Énergie'],[n.sucres,'Sucres'],[n.proteines,'Protéines'],[n.sel,'Sel']
+    ].map(([v,l]) => `<div class="nutri-cell"><div class="nutri-val">${v}</div><div class="nutri-lbl">${l}</div></div>`).join('');
 
-  document.getElementById('p-conservation').textContent = b.conservation || '–';
+    document.getElementById('p-conservation').textContent = b.conservation || '–';
+  } catch {
+    document.getElementById('page-404').classList.add('active');
+    document.getElementById('page-produit').classList.remove('active');
+  }
 }
 
 // ── PAGE SCANNER ──────────────────────────────
@@ -756,16 +785,23 @@ function showScanner() {
   html5QrCode.start(
     { facingMode: "environment" },
     { fps: 10, qrbox: { width: 240, height: 240 } },
-    (txt) => {
+    async (txt) => {
       const m = txt.match(/#\/boisson\/(.+)$/);
-      if (m && chargerBoissons().find(b => b.id === m[1])) {
-        setStatus('success','✅ Boisson trouvée ! Redirection...');
-        arreterScanner(false);
-        setTimeout(() => location.hash = '#/boisson/' + m[1], 500);
-      } else {
-        setStatus('error','❌ QR code non reconnu.');
-        setTimeout(() => setStatus('scanning','En attente du QR code...'), 2000);
+      if (m) {
+        const id = m[1];
+        try {
+          const res = await fetch(`${DB_URL}/boissons/${id}.json`);
+          const b = await res.json();
+          if (b) {
+            setStatus('success','✅ Boisson trouvée ! Redirection...');
+            arreterScanner(false);
+            setTimeout(() => location.hash = '#/boisson/' + id, 500);
+            return;
+          }
+        } catch {}
       }
+      setStatus('error','❌ QR code non reconnu.');
+      setTimeout(() => setStatus('scanning','En attente du QR code...'), 2000);
     },
     () => {}
   ).catch(() => setStatus('error','❌ Impossible d\'accéder à la caméra.'));
@@ -824,9 +860,11 @@ function switchTab(tab) {
   if (tab==='qrcodes') chargerQRCodes();
 }
 
-function chargerAdminListe() {
-  const boissons = chargerBoissons();
-  const c = document.getElementById('admin-liste-items'); c.innerHTML = '';
+async function chargerAdminListe() {
+  const c = document.getElementById('admin-liste-items');
+  c.innerHTML = '<p style="text-align:center;color:var(--muted);padding:24px 0;">Chargement...</p>';
+  const boissons = await chargerBoissons();
+  c.innerHTML = '';
   document.getElementById('admin-liste-vide').style.display = boissons.length ? 'none' : 'block';
   boissons.forEach(b => {
     const dlc = calculerDLC(b.dlc);
@@ -856,8 +894,9 @@ function reinitialiserFormulaire() {
   document.getElementById('f-allergenes').value = '';
 }
 
-function modifierBoisson(id) {
-  const b = chargerBoissons().find(x => x.id === id); if (!b) return;
+async function modifierBoisson(id) {
+  const res = await fetch(`${DB_URL}/boissons/${id}.json`);
+  const b = await res.json(); if (!b) return;
   switchTab('ajouter');
   document.getElementById('edit-id').value = b.id;
   document.getElementById('form-titre').textContent = 'Modifier la boisson';
@@ -876,16 +915,16 @@ function modifierBoisson(id) {
   document.getElementById('f-conservation').value = b.conservation||'';
 }
 
-function sauvegarderBoisson() {
+async function sauvegarderBoisson() {
   const nom = document.getElementById('f-nom').value.trim();
   const dlc = document.getElementById('f-dlc').value;
   const ing = document.getElementById('f-ingredients').value.trim();
   if (!nom || !dlc || !ing) { toast('Remplissez les champs obligatoires (*)','error'); return; }
 
-  const boissons = chargerBoissons();
   const editId = document.getElementById('edit-id').value;
+  const id = editId || genererID(nom);
   const boisson = {
-    id: editId || genererID(nom), nom,
+    id, nom,
     categorie: document.getElementById('f-categorie').value,
     volume: document.getElementById('f-volume').value.trim()||'–',
     dlc, origine: document.getElementById('f-origine').value.trim()||'–',
@@ -900,23 +939,27 @@ function sauvegarderBoisson() {
     conservation: document.getElementById('f-conservation').value.trim()
   };
 
-  if (editId) { boissons[boissons.findIndex(b=>b.id===editId)] = boisson; toast('✅ Boisson mise à jour !','success'); }
-  else { boissons.push(boisson); toast('✅ Boisson ajoutée !','success'); }
+  // Sauvegarde directe par ID dans Firebase
+  await fetch(`${DB_URL}/boissons/${id}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(boisson)
+  });
 
-  sauvegarderBoissons(boissons);
+  toast(editId ? '✅ Boisson mise à jour !' : '✅ Boisson ajoutée !','success');
   reinitialiserFormulaire();
   switchTab('liste');
 }
 
-function supprimerBoisson(id) {
+async function supprimerBoisson(id) {
   if (!confirm('Supprimer cette boisson ?')) return;
-  sauvegarderBoissons(chargerBoissons().filter(b=>b.id!==id));
+  await fetch(`${DB_URL}/boissons/${id}.json`, { method: 'DELETE' });
   chargerAdminListe();
   toast('Boisson supprimée','error');
 }
 
-function chargerQRCodes() {
-  const boissons = chargerBoissons();
+async function chargerQRCodes() {
+  const boissons = await chargerBoissons();
   const g = document.getElementById('qr-grille'); g.innerHTML = '';
   document.getElementById('qr-vide').style.display = boissons.length ? 'none' : 'block';
   boissons.forEach(b => {
